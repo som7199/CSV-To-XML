@@ -1,0 +1,112 @@
+﻿<Window x:Class="CSVToXMLWPF.Views.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:prism="http://prismlibrary.com/" 
+        xmlns:local="clr-namespace:CSVToXMLWPF.ViewModels" 
+        prism:ViewModelLocator.AutoWireViewModel="True"
+        Title="{Binding Title}" Height="500" Width="1000" 
+        WindowStartupLocation="CenterScreen"
+        Closing="Window_Closing">
+    <!--local은 IndexConverter 클래스가 정의된 네임스페이스, XAML 파일에서 해당 클래스에 접근할 수 있게 해줌-->
+    <!--x:Key**는 이 변환기에 대한 고유한 키를 설정, 나중에 이 키를 사용하여 변환기를 참조 가능-->
+    <Window.Resources>
+        <local:IndexConverter x:Key="IndexConverter" />
+    </Window.Resources>
+
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="0.7*"/>
+            <RowDefinition Height="6*"/>
+            <RowDefinition Height="0.7*"/>
+        </Grid.RowDefinitions>
+
+        <Grid Grid.Row="0" Margin="0, 10, 0, 0">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*"/>
+                <ColumnDefinition Width="*"/>
+            </Grid.ColumnDefinitions>
+
+            <!-- TextBox -->
+            <TextBox Grid.Column="0" Height="30" Margin="20,0,7,0" 
+                    IsEnabled="{Binding OpenFileChecked}"
+                    VerticalContentAlignment="Center"
+                    x:Name="WaterMarkTextBox"
+                    Text="{Binding RootName}"/>
+
+            <!-- Watermark TextBlock -->
+            <!--IsHitTestVisible="False" : extBlock이 마우스나 키보드의 입력을 받지 않도록 설정, 사용자가 워터마크 텍스트를 클릭해도 TextBox에만 포커스-->
+            <TextBlock IsHitTestVisible="False" 
+                   Text="루트 입력(ex: PLCAddress)"  
+                   VerticalAlignment="Center" 
+                   Margin="25,0,7,0" 
+                   Foreground="DarkGray">
+                <TextBlock.Style>
+                    <Style TargetType="{x:Type TextBlock}">
+                        <!-- TextBlock 기본 상태는 숨김 -->
+                        <Setter Property="Visibility" Value="Collapsed"/>
+                        <Style.Triggers>
+                            <!-- TextBox의 Text가 비어 있으면 TextBlock 표시 -->
+                            <!--DataTrigger: 특정 조건이 충족될 때 스타일을 변경, 텍스트박스의 Text 속성에 바인딩하여 WaterMarkTextBox의 텍스트 변화를 감지-->
+                            <!--텍스트가 비어있으면(Value="") Visibility 속성을(Property="Visibility") Visible로 설정(Value="Visible")하여 TextBlock이 보이게 함-->
+                            <DataTrigger Binding="{Binding Text, ElementName=WaterMarkTextBox}" Value="">
+                                <Setter Property="Visibility" Value="Visible"/>
+                            </DataTrigger>
+                        </Style.Triggers>
+                    </Style>
+                </TextBlock.Style>
+            </TextBlock>
+            <ComboBox Grid.Column="1" Margin="7,0,20,0" ItemsSource="{Binding GroupName}" SelectedIndex="{Binding GroupNameIndex}" Height="30" IsEnabled="{Binding OpenFileChecked}"/>
+        </Grid>
+
+        <Grid Grid.Row="1">
+            <TabControl Margin="20, 5, 20, 5" ItemsSource="{Binding TabItems}" IsSynchronizedWithCurrentItem="True" SelectedIndex="{Binding SelectedTabIndex}">
+                <TabControl.ItemTemplate>
+                    <DataTemplate>
+                        <TextBlock Text="{Binding FileName}"/>
+                        <!--TabItem 헤더에 파일명 표시-->
+                    </DataTemplate>
+                </TabControl.ItemTemplate>
+
+                <TabControl.ContentTemplate>
+                    <DataTemplate>
+                        <DataGrid ItemsSource="{Binding CsvView}" AutoGenerateColumns="False" Grid.Row="1" Margin="20, 10, 10, 10" CanUserAddRows="False">
+                            <DataGrid.Columns>
+                                <DataGridTextColumn Header="No" Width="SizeToHeader" Binding="{Binding No}"/>
+                                <DataGridTextColumn Binding="{Binding Label}" Header="Label" Width="Auto" IsReadOnly="True"/>
+                                <DataGridTextColumn Header="Address" Width="SizeToHeader" IsReadOnly="True">
+                                    <DataGridTextColumn.Binding>
+                                        <MultiBinding Converter="{StaticResource IndexConverter}">
+                                            <!--현재 데이터 그리드 행-->
+                                            <Binding />
+                                            <!--전체 CsvView-->
+                                            <Binding Path="DataContext.CsvView" RelativeSource="{RelativeSource AncestorType={x:Type DataGrid}}"/>
+                                        </MultiBinding>
+                                    </DataGridTextColumn.Binding>
+                                </DataGridTextColumn>
+                                <!--Mode=TwoWay 추가하여 사용자가 수정할 수 있는 항목에 대해 양방향 바인딩 활성화-->
+                                <DataGridTextColumn Binding="{Binding Name, Mode=TwoWay}" Header="IOName" Width="SizeToCells" IsReadOnly="False"/>
+                                <DataGridTextColumn Binding="{Binding DataType, Mode=TwoWay}" Header="DataType" Width="1*" IsReadOnly="False"/>
+                                <DataGridTextColumn Binding="{Binding Multi, Mode=TwoWay}" Header="Multi" Width="1*" IsReadOnly="False"/>
+                            </DataGrid.Columns>
+                        </DataGrid>
+                    </DataTemplate>
+                </TabControl.ContentTemplate>
+            </TabControl>
+        </Grid>
+
+        <Grid Grid.Row="2">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="1*"/>
+                <ColumnDefinition Width="Auto"/>
+            </Grid.ColumnDefinitions>
+
+            <Grid Grid.Column="1">
+                <WrapPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center">
+                    <Button Content="Open File" Height="27" Width="100" Command="{Binding OpenFileCommand}"/>
+                    <Button Content="Save XML" Margin="15,0,20,0" Height="27" Width="100" Command="{Binding SaveXMLCommand}" IsEnabled="{Binding OpenFileChecked}"/>
+                </WrapPanel>
+            </Grid>
+        </Grid>
+        <!--<ContentControl prism:RegionManager.RegionName="ContentRegion"/>-->
+    </Grid>
+</Window>
