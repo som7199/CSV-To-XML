@@ -1,6 +1,7 @@
 ﻿using CsvHelper;    // for CSVReader
 using CsvHelper.Configuration;
 using CSVToXMLWPF.Services;
+using CSVToXMLWPF.Views;
 using Prism.Commands;
 using Prism.Mvvm;
 using System;
@@ -11,11 +12,7 @@ using System.Diagnostics;
 using System.Globalization;
 using System.IO;
 using System.Linq;
-using System.Text;
 using System.Windows;
-using System.Windows.Controls;
-using System.Xml;
-using System.Xml.Linq;
 
 namespace CSVToXMLWPF.ViewModels
 {
@@ -44,14 +41,6 @@ namespace CSVToXMLWPF.ViewModels
             set { SetProperty(ref openFileChecked, value); }
         }
 
-        // 사용자가 입력한 RootName
-        private string _rootName;
-        public string RootName
-        {
-            get { return _rootName; }
-            set { SetProperty(ref _rootName, value); }
-        }
-
         /* 
          * CSV 레코드를 담기 위한 ObservableCollection
          * ObservableCollection 사용 이유 => UI와 데이터 간의 동기화 지원(INotifyCollectionChanged 인터페이스를 구현하여 컬렉션 변경을 감지하고 UI에 이벤트 발생시킴)
@@ -60,7 +49,7 @@ namespace CSVToXMLWPF.ViewModels
          */
         //public ObservableCollection<CsvRecord> CsvRecords { get; private set; }       // 이건 그냥 단순히 Read한거 뿌리기 할 때만 사용
 
-        // CsvView 타입의 객체들을 담은 CsvView
+        // CsvView 타입의 객체들을 담은 ObservableCollection CsvView
         // Name, DataType, Multi는 수정 가능하도록 구현해야해서 이렇게 바꿔줌!
         private ObservableCollection<CsvView> _csvView;
         
@@ -70,6 +59,7 @@ namespace CSVToXMLWPF.ViewModels
             set { SetProperty(ref _csvView, value); }
         }
 
+#if false
         // 여러 개의 CsvTabViewModel 객체 담는 _tabItems
         /*
          * 탭에 표시되는 데이터는 TabItems에서 오고, 각 탭의 내용은 CsvTabViewModel의 CsvView라는 ObservableCollection에 바인딩되어 DataGrid로 나타남!
@@ -91,22 +81,86 @@ namespace CSVToXMLWPF.ViewModels
             get { return _selectedTabIndex; }
             set { SetProperty(ref _selectedTabIndex, value); }
         }
+#endif
+        /*
+         * 이제 Read용 데이터그리드와 Write용 데이터그리드 두 개를 띄워야하기 때문에
+         * 각각의 ReadTabItems와 WriteTabItems를 관리할 수 있는 리스트(ObservableCollection)를 만들어야 함!
+         * 이 리스트는 각 파일에 대해 별도의 CsvTabViewModel을 갖게 됨!
+         */
+        // Read 탭에 대한 리스트, UI와 바인딩될 것
+        private ObservableCollection<CsvTabViewModel> _readTabItems;
+        public ObservableCollection<CsvTabViewModel> ReadTabItems
+        {
+            get { return _readTabItems; }
+            set { SetProperty(ref _readTabItems, value); }
+        }
+
+        // Write 탭에 대한 리스트, UI와 바인딩될 것
+        private ObservableCollection<CsvTabViewModel> _writeTabItems;
+        public ObservableCollection<CsvTabViewModel> WriteTabItems
+        {
+            get { return _writeTabItems; }
+            set { SetProperty(ref _writeTabItems, value); }
+        }
+
+        // 마지막으로 선택된 탭을 기준으로 XML을 변환해야하므로 마지막으로 선택된 탭을 저장하는 SelectedTabGroup 속성 생성
+        private string _selectedTabGroup;
+        public string SelectedTabGroup
+        {
+            get { return _selectedTabGroup; }
+            set { SetProperty(ref _selectedTabGroup, value); }
+        }
+
+        // 현재 선택된 Read 탭 인덱스(UI에서 어떤 탭이 선택됐는지)
+        private int _selectedReadTabIndex;
+        public int SelectedReadTabIndex
+        {
+            get { return _selectedReadTabIndex; }
+            set 
+            { 
+                SetProperty(ref _selectedReadTabIndex, value);
+                //인덱스가 0 이상인 경우 선택된 탭이 있다는 의미
+                if (value >= 0)
+                {
+                    SelectedTabGroup = "Read";
+                }
+            }
+        }
+
+        // 현재 선택된 Write 탭 인덱스(UI에서 어떤 탭이 선택됐는지)
+        private int _selectedWriteTabIndex;
+        public int SelectedWriteTabIndex
+        {
+            get { return _selectedWriteTabIndex; }
+            set 
+            { 
+                SetProperty(ref _selectedWriteTabIndex, value);
+                if (value >= 0)
+                {
+                    SelectedTabGroup = "Write";
+                }
+            }
+        }
 
         private DelegateCommand _openFileCommand;
         public DelegateCommand OpenFileCommand =>
             _openFileCommand ?? (_openFileCommand = new DelegateCommand(ExecuteOpenFileCommand));
 
-        private DelegateCommand _saveXMLCommand;
-        public DelegateCommand SaveXMLCommand =>
-            _saveXMLCommand ?? (_saveXMLCommand = new DelegateCommand(ExecuteSaveXMLCommand));
-        
+        // Set SaveOptions 버튼 클릭 시
+        private DelegateCommand _setSaveOptionsCommand;
+        public DelegateCommand SetSaveOptionsCommand =>
+            _setSaveOptionsCommand ?? (_setSaveOptionsCommand = new DelegateCommand(ExecuteSetSaveOptionsCommand));
+
+
         public MainWindowViewModel(IFileDialogService fileDialogService)
         {
             _fileDialogService = fileDialogService;
-            TabItems = new ObservableCollection<CsvTabViewModel>();     // CsvTabViewModel 객체를 담을 TabItems
             filePathList = new List<string>();                          // 생성자에서 초기화
-        }
 
+            ReadTabItems = new ObservableCollection<CsvTabViewModel>();
+            WriteTabItems = new ObservableCollection<CsvTabViewModel>();
+        }
+                
         // 파일 경로를 바탕으로 파일을 읽고
         // 해당 파일의 내용을 DataGrid이랑 Binding 할 수 있도록 CsvView에 저장!
         void ExecuteOpenFileCommand()
@@ -125,16 +179,25 @@ namespace CSVToXMLWPF.ViewModels
                     {
                         filePathList.Add(filePath);
 
-                        var tabViewModel = LoadCsv(filePath);     // csv 파일을 읽어 CsvTabViewModel 생성
-                        TabItems.Add(tabViewModel);               // TabItems에 추가하여 UI에 탭 생성
+                        // csv 파일을 읽어 CsvTabViewModel 생성(진짜 csv 파일 그대로 읽기만 한 상태)
+                        var tabViewModel = LoadCsv(filePath);
+
+                        // 해당 파일을 Read 탭과 Write 탭에 나눠서 보여야하기 때문에
+                        // Label에 I가 포함되면 ReadTabItems에 추가, O가 포함되면 WriteTabItems에 추가되도록 함
+                        DivideReadWrite(tabViewModel);            
                     }
                 }
-                //MessageBox.Show(filePaths.Count.ToString());
 
                 // 새로 추가된 탭의 인덱스를 설정하여 선택합니다.
-                if (TabItems.Count > 0)
+                if (ReadTabItems.Count > 0)
                 {
-                    SelectedTabIndex = TabItems.Count - 1; // 마지막으로 추가된 탭의 인덱스를 선택
+                    SelectedReadTabIndex = ReadTabItems.Count - 1; // 마지막으로 추가된 탭의 인덱스를 선택
+                }
+
+                // 새로 추가된 탭의 인덱스를 설정하여 선택합니다.
+                if (WriteTabItems.Count > 0)
+                {
+                    SelectedWriteTabIndex = WriteTabItems.Count - 1; // 마지막으로 추가된 탭의 인덱스를 선택
                 }
 
                 // OpenFileChecked를 true로 설정 => Root와 Group Name 입력 가능
@@ -143,6 +206,43 @@ namespace CSVToXMLWPF.ViewModels
             catch (Exception ex)
             {
                 Debug.WriteLine($"오류 발생: {ex.Message}");
+            }
+        }
+
+        // ReadTabItems에 추가할지 WriteTabItems에 추가할지 결정하는 함수 하나 만들어서 ExecuteOpenFileCommand()에서 호출
+        // Label에 I를 포함하는 행만 포함하는 ReadCsvView를 만들고, 그 ReadCsvView를 CsvTabViewModel 생성자의 인자로 추가한 후, 해당 CsvTabViewModel을 ReadTabItems에 추가하는 방식
+        void DivideReadWrite(CsvTabViewModel tabViewModel)
+        {
+            /*
+             * LINQ의 Select 메서드에서 자동으로 제공되는 index 변수와 record 변수!
+             * Select 메서드는 각 요소를 나타내는 record, 그 요소의 인덱스를 나타내는 index 두 개의 매개변수를 받을 수 있음!
+             * Select 내부에서 index는 0부터 시작하므로 index + 1을 통해 No 값을 1부터 순차적으로 할당!
+             * 아래의 코드의 Select문은 No 속성에 순차적인 번호를 부여한 후 그 행(record)을 반환!
+             */
+
+            // Label에 I를 포함하는 행(record)만 포함하는 ReadCsvView 생성
+            var readCsvView = new ObservableCollection<CsvView>(tabViewModel.CsvView.Where(record => record.Label.Contains('I'))
+                                                                                    .Select((record, index) => {
+                                                                                        record.No = index + 1; 
+                                                                                        return record; 
+                                                                                    }));
+
+            // Label에 O를 포함하는 행만 포함하는 WriteCsvView 생성
+            var writeCsvView = new ObservableCollection<CsvView>(tabViewModel.CsvView.Where(record => record.Label.Contains('O'))
+                                                                                     .Select((record, index) => { 
+                                                                                         record.No = index + 1; 
+                                                                                         return record; 
+                                                                                     }));
+
+            // ReatTabItems와 WriteTabItems에 (조건에 맞게 분류되어) 생성된 CsvTabViewModel 추가
+            if (readCsvView.Count > 0)
+            {
+                ReadTabItems.Add(new CsvTabViewModel(tabViewModel.FilePath, readCsvView, tabViewModel.FileName));
+            }
+
+            if (writeCsvView.Count > 0)
+            {
+                WriteTabItems.Add(new CsvTabViewModel(tabViewModel.FilePath, writeCsvView, tabViewModel.FileName));
             }
         }
 
@@ -172,7 +272,6 @@ namespace CSVToXMLWPF.ViewModels
                 // 파일명만 탭 헤더에 출력
                 var fileName = filePath.Split('\\').ToList();
                 string tabName = fileName[fileName.Count - 1];
-                //MessageBox.Show(tabName);
 
                 // 새로운 CsvTabViewModel 인스턴스 생성
                 // CsvTabViewModel 생성자는 탭 제목으로 쓸 파일명이랑 CSV 파일 데이터 담은 CsvView 인자로 받음
@@ -204,223 +303,59 @@ namespace CSVToXMLWPF.ViewModels
             }
         }
 
-        // XML로 변환할 때는 행에 Name이 없으면  해당 행을 빼야함!
-        // Address는 0부터 순차적으로 부여
-        // PLCAddress - Bit Address - Read01 - Item - Name Address Label DataType Multi (이거는 나중에 UI에서 사용자가 선택해서 진행할 것 같기 때문에 프로님 코드 방식으로 2번 방법도 진행해보기)
-        void ExecuteSaveXMLCommand()
+        void ExecuteSetSaveOptionsCommand()
         {
             // 탭이 선택되지 않은 경우(탭의 파일 이름이 없으면 예외 발생)
-            if (TabItems.Count == 0)
+            if (ReadTabItems.Count == 0 || WriteTabItems.Count == 0)
             {
                 MessageBox.Show("저장할 파일이 없습니다.", "❌📃❌", MessageBoxButton.OK, MessageBoxImage.Warning);
                 return;
             }
 
-            // RootName을 입력하지 않은 경우
-            if (string.IsNullOrEmpty(RootName))
+            if (ForNextStep())
             {
-                MessageBox.Show("Root명을 지정해주세요", "❌⌨️❌", MessageBoxButton.OK, MessageBoxImage.Warning);
-                return;
-            }
+                var saveOptionsWindow = new SaveOptionsWindow();            // SaveOptions 창을 띄움!
 
-            else
-            {
-                // 파일 저장 대화 상자
-                string filter = "XML 파일 (*.xml)|*.xml";
-                string title = "";
-                string filePath = _fileDialogService.SaveFileDialog(filter, title);
-                Debug.WriteLine(filePath);
+                // SaveOptionsWindow의 DataContext에 ViewModel을 바인딩
+                var saveOptionsWindowViewModel = new SaveOptionsWindowViewModel(_fileDialogService,
+                    this.ReadTabItems,
+                    this.WriteTabItems,
+                    this.SelectedReadTabIndex,
+                    this.SelectedWriteTabIndex,
+                    this.SelectedTabGroup);
 
-                if (!string.IsNullOrEmpty(filePath))
-                {
-                    //convertListToXML(filePath);           // 1번 방법 - #if ~ #endif에 있음
-                    //convertDataTableToXML(filePath);        // 2번 방법
-                    //convertListToXML(TabItems[SelectedTabIndex], filePath);           // 1번 방법
-                    convertDataTableToXML(filePath, TabItems[SelectedTabIndex]);        // 2번 방법
-                }
+                // DataContext: SaveOptionsWindow의 DataContext를 SaveOptionsWindowViewModel 인스턴스로 설정하여
+                // UI 요소들이 ViewModel의 속성과 명령에 바인딩될 수 있도록 한다.
+                saveOptionsWindow.DataContext = saveOptionsWindowViewModel;
 
-                // 저장된 XML 파일 열기
-                _fileDialogService.OpenSavedFileDialog(filePath);
-            }
-        }
+                // MainWindow를 SaveOptionsWindow의 Owner로 설정
+                saveOptionsWindow.Owner = Application.Current.MainWindow;
 
-        // 1번 방법 활용 > 아예 선택된 CsvTabViewModel을 매개변수로 전달
-        void convertListToXML(CsvTabViewModel csvTabViewModel,string filePath)
-        {
-            List<CsvView> records = csvTabViewModel.CsvView.ToList();
-            MessageBox.Show($"Original File Path: {csvTabViewModel.FilePath}\nSave Path: {filePath}");
+                // MainWindow의 위치와 동일하게 창 위치 설정
+                saveOptionsWindow.WindowStartupLocation = WindowStartupLocation.Manual; // 수동으로 위치 설정
+                saveOptionsWindow.Left = Application.Current.MainWindow.Left;
+                saveOptionsWindow.Top = Application.Current.MainWindow.Top;
 
-            int address = 0;
-
-            XDocument xDoc = new XDocument();
-
-            // XML로 변환
-            // XElement 클래스를 사용하여 XML 데이터를 만들고, XML 데이터에 LINQ를 사용하여 XML 요소를 가공
-            XElement xml = new XElement(RootName,
-                records.Where(record => !string.IsNullOrEmpty(record.Name)) // Name이 없는 항목 제외
-                .Select(record => new XElement("Item",
-                    new XElement("Name", record.Name),
-                    new XElement("Address", (address++).ToString()),
-                    new XElement("Label", record.Label),
-                    new XElement("DataType", record.DataType),
-                    new XElement("Multi", record.Multi)
-                ))
-            );
-            // XML 파일로 저장
-            xml.Save(filePath);
-        }
-
-        // 2번 방법 활용 => 1번과 마찬가지로 아예 선택된 CsvTabViewModel을 전달
-        void convertDataTableToXML(string filePath, CsvTabViewModel csvTabViewModel)
-        {
-            DataTable dt = ConvertDataGridToDataTable(csvTabViewModel);
-            DataTableToXML(dt, filePath);
-        }
-
-        DataTable ConvertDataGridToDataTable(CsvTabViewModel csvTabViewModel)
-        {
-            /*
-            DataTable : 단일 테이블, 즉 행과 열로 구성된 데이터 구조
-            DataSet : 여러 개의 DataTable 포함이 가능한 컨테이너, 관계형 DB와 유사한 구조, 데이터 간의 관계(ex: 고객-주문)가 있는 경우에 유용
-            나는 간단한 데이터니까 DataTable 사용할게
-            */
-            DataTable dataTable = new DataTable("Item");
-
-            dataTable.Columns.Add("Name");
-            dataTable.Columns.Add("Address");
-            dataTable.Columns.Add("Label");
-            dataTable.Columns.Add("DataType");
-            dataTable.Columns.Add("Multi");
-
-            int address = 0;
-            foreach (var csvView in csvTabViewModel.CsvView)
-            {
-                if (!string.IsNullOrEmpty(csvView.Name))
-                {
-                    DataRow row = dataTable.NewRow();
-                    row["Name"] = csvView.Name;
-                    row["Address"] = (address++).ToString();
-                    row["Label"] = csvView.Label;
-                    row["DataType"] = csvView.DataType;
-                    row["Multi"] = csvView.Multi;
-                    dataTable.Rows.Add(row);
-                }
-            }
-            return dataTable;
-        }
-
-        // WriteXml() 사용 시 DataTable에 루트 요소 이름 지정이 불가능함 ㅠㅠ
-        // DataSet을 사용하여 루트 요소를 지정해주기!
-        void DataTableToXML(DataTable dataTable, string filePath)
-        {
-            if (!string.IsNullOrEmpty(filePath))
-            {
-                // DataSet을 생성해 루트 요소 결정
-                DataSet ds = new DataSet(RootName);
-                ds.Tables.Add(dataTable);   // dataTable을 ds에 추가
-
-                // filePath 위치에 XML 파일 생성
-                // Indent = true => 들여쓰기
-                using (var writer = XmlWriter.Create(filePath, new XmlWriterSettings { Indent = true, Encoding = Encoding.UTF8 }))
-                {
-                    ds.WriteXml(writer);
-                }
-                MessageBox.Show("XML 저장 완료 : " + filePath);
+                saveOptionsWindow.ShowDialog();
             }
         }
-        // 팀장님께서 나중에 엑셀 파일을 XML로 바꾸는건 DataTable 쓰시라고 하셨오
 
-#if false   // 단일 데이터그리드 XML 변환(초기 코드)
-        // 1번 방법 - 박흥준 프로님께서 주신 코드 활용(List로 변환한 CsvRecord를 바로 XML로 변환하는 코드라서 CsvView를 List로 변환해서 이 코드 써보기)
-        void convertListToXML(string filePath)
+        bool ForNextStep()
         {
-            //private CsvTabViewModel SelectedTabViewModel => TabItems[SelectedTabIndex];
-            List<CsvView> records = CsvView.ToList();
-            int address = 0;
-
-            XDocument xDoc = new XDocument();
-
-            // XML로 변환
-            // XElement 클래스를 사용하여 XML 데이터를 만들고, XML 데이터에 LINQ를 사용하여 XML 요소를 가공
-            XElement xml = new XElement("Items",
-                records.Where(record => !string.IsNullOrEmpty(record.Name)) // Name이 없는 항목 제외
-                .Select(record => new XElement("Item",
-                    new XElement("Name", record.Name),
-                    new XElement("Address", (address++).ToString()),
-                    new XElement("Label", record.Label),
-                    new XElement("DataType", record.DataType),
-                    new XElement("Multi", record.Multi)
-                ))
-            );
-            // XML 파일로 저장
-            xml.Save(filePath);
-        }
-
-        // 2번 방법 - DataGrid(바인딩된 데이터)를 기반으로 DataTable 생성, 생성한 DataTabled을 XML로 변환
-        /*
-        아 원래 계획은 데이터그리드에 있는 내용을 수정했을 때, 데이터그리드에 있는 내용 그대로 XML 파일을 저장하고, csv 파일도 저장하려고 했었는데
-        그냥 지금 이 코드나 1번 코드로 XML 파일 만들고
-            - if 해당 파일로 XML을 이미 만든 후에, 새롭게 변경됐다면 기존의 XML 파일을 덮어쓸 것인지 아니면 새로운 파일을 만들 것인지
-        새로 생성된 XML 파일을 CSV 파일로 바꾸는 함수를 하나 더 작성하면 해결될 듯..!
-        */
-        void convertDataTableToXML(string filePath)
-        {
-            DataTable dt = ConvertDataGridToDataTable();
-            DataTableToXML(dt, filePath);
-        }
-
-        DataTable ConvertDataGridToDataTable()
-        {
-            /*
-            DataTable : 단일 테이블, 즉 행과 열로 구성된 데이터 구조
-            DataSet : 여러 개의 DataTable 포함이 가능한 컨테이너, 관계형 DB와 유사한 구조, 데이터 간의 관계(ex: 고객-주문)가 있는 경우에 유용
-            나는 간단한 데이터니까 DataTable 사용
-            */
-            DataTable dataTable = new DataTable("Item");
-
-            dataTable.Columns.Add("Name");
-            dataTable.Columns.Add("Address");
-            dataTable.Columns.Add("Label");
-            dataTable.Columns.Add("DataType");
-            dataTable.Columns.Add("Multi");
-
-            int address = 0;
-            foreach (var csvView in CsvView)
+            if (SelectedTabGroup == "Read")
             {
-                if (!string.IsNullOrEmpty(csvView.Name))
-                {
-                    DataRow row = dataTable.NewRow();
-                    row["Name"] = csvView.Name;
-                    row["Address"] = (address++).ToString();
-                    row["Label"] = csvView.Label;
-                    row["DataType"] = csvView.DataType;
-                    row["Multi"] = csvView.Multi;
-                    dataTable.Rows.Add(row);
-                }
+                if(MessageBox.Show($"선택한 파일이 {SelectedTabGroup}탭에 있습니까?", "🗂️❓", MessageBoxButton.YesNo, MessageBoxImage.Question) == MessageBoxResult.Yes)
+                    return true;
+                return false;
             }
 
-            return dataTable;
-        }
-
-        // WriteXml() 사용 시 DataTable에 루트 요소 이름 지정이 불가능함 ㅠㅠ
-        // DataSet을 사용하여 루트 요소를 지정해주기!
-        void DataTableToXML(DataTable dataTable, string filePath)
-        {
-            if (!string.IsNullOrEmpty(filePath))
+            if (SelectedTabGroup == "Write")
             {
-                // DataSet을 생성해 루트 요소 결정
-                DataSet ds = new DataSet("Items");
-                ds.Tables.Add(dataTable);   // dataTable을 ds에 추가
-
-                // filePath 위치에 XML 파일 생성
-                // Indent = true => 들여쓰기
-                using (var writer = XmlWriter.Create(filePath, new XmlWriterSettings { Indent = true, Encoding = Encoding.UTF8 }))
-                {
-                    ds.WriteXml(writer);
-                }
-                MessageBox.Show("XML 저장 완료 : " + filePath);
+                if (MessageBox.Show($"선택한 파일이 {SelectedTabGroup}탭에 있습니까?", "🗂️❓", MessageBoxButton.YesNo, MessageBoxImage.Question) == MessageBoxResult.Yes)
+                    return true;
+                return false;
             }
+            return false;
         }
-#endif
     }
 }

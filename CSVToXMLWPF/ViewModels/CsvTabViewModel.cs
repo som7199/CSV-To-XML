@@ -21,11 +21,11 @@ namespace CSVToXMLWPF.ViewModels
         // 탭에서 해당 CSV 파일의 데이터를 담고 있는 ObservableCollection
         public ObservableCollection<CsvView> CsvView { get; set; }
 
-        public CsvTabViewModel(string filePath, ObservableCollection<CsvView> csvView, string FileName)
+        public CsvTabViewModel(string filePath, ObservableCollection<CsvView> csvView, string fileName)
         {
             FilePath = filePath;
             CsvView = csvView;
-            FileName = "";
+            FileName = fileName;
         }
     }
 }
