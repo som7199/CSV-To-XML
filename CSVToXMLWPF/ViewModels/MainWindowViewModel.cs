@@ -306,7 +306,7 @@ namespace CSVToXMLWPF.ViewModels
         void ExecuteSetSaveOptionsCommand()
         {
             // 탭이 선택되지 않은 경우(탭의 파일 이름이 없으면 예외 발생)
-            if (ReadTabItems.Count == 0 || WriteTabItems.Count == 0)
+            if (ReadTabItems.Count == 0 && WriteTabItems.Count == 0)
             {
                 MessageBox.Show("저장할 파일이 없습니다.", "❌📃❌", MessageBoxButton.OK, MessageBoxImage.Warning);
                 return;
@@ -332,7 +332,7 @@ namespace CSVToXMLWPF.ViewModels
                 saveOptionsWindow.Owner = Application.Current.MainWindow;
 
                 // MainWindow의 위치와 동일하게 창 위치 설정
-                saveOptionsWindow.WindowStartupLocation = WindowStartupLocation.Manual; // 수동으로 위치 설정
+                saveOptionsWindow.WindowStartupLocation = WindowStartupLocation.CenterScreen; // 수동으로 위치 설정
                 saveOptionsWindow.Left = Application.Current.MainWindow.Left;
                 saveOptionsWindow.Top = Application.Current.MainWindow.Top;
 

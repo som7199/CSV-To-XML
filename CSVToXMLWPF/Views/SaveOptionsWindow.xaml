@@ -73,12 +73,30 @@
                     <RowDefinition Height="1*"/>
                     <RowDefinition Height="1*"/>
                     <RowDefinition Height="1*"/>
-                    <RowDefinition Height="1*"/>
                 </Grid.RowDefinitions>
-                <WrapPanel Margin="10, 0, 5, 0">
-                    <ComboBox MinWidth="330" Height="50"/>
-                    <Button Content="Add File" FontSize="15" Width="120" Margin="20, 0, 0, 0"/>
-                </WrapPanel>
+                <Grid Grid.Row="0">
+                    <StackPanel Margin="10, 0, 5, 0">
+                        <Label Content="Selected Tabs" VerticalContentAlignment="Bottom" Margin="0,0,0,5"/>
+                        <WrapPanel>
+                            <ComboBox x:Name="SelectedTabs" ItemsSource="{Binding FileList}" SelectedItem="{Binding SelectedAddFile}" SelectedIndex="{Binding SelectedFileIndex}" Width="350" Height="50"/>
+                            <!--SelectedFileName이 바인딩 안 됨-->
+                            <!--<ComboBox x:Name="SelectedTabs" ItemsSource="{Binding FileList}" SelectedItem="{Binding SelectedAddFile}" SelectedIndex="{Binding SelectedFileIndex}" MinWidth="330" Height="50">
+                                    <ComboBox.ItemTemplate>
+                                        <DataTemplate>
+                                            <TextBlock Text="{Binding SelectedFileName}" FontSize="15"/>
+                                        </DataTemplate>
+                                    </ComboBox.ItemTemplate>
+                                </ComboBox>-->
+                            <Button Command="{Binding AddFileCommand}" Content="Add File" FontSize="15" Width="110" Margin="15, 0, 0, 0"/>
+                        </WrapPanel>
+                    </StackPanel>
+                </Grid>
+                <Grid Grid.Row="1">
+                    <StackPanel Margin="10, 0, 5, 0">
+                        <Label Content="Group Name"/>
+                        <ComboBox MinWidth="350" Height="50" ItemsSource="{Binding GroupName}"/>
+                    </StackPanel>
+                </Grid>
             </Grid>
 
             <Grid Grid.Column="1">
@@ -86,12 +104,28 @@
                     <RowDefinition Height="1*"/>
                     <RowDefinition Height="1*"/>
                     <RowDefinition Height="1*"/>
-                    <RowDefinition Height="1*"/>
                 </Grid.RowDefinitions>
-                <WrapPanel Margin="5, 0, 10, 0">
-                    <ComboBox MinWidth="330" Height="50"/>
-                    <Button Content="Remove File" FontSize="15" Width="120" Margin="20, 0, 0, 0"/>
-                </WrapPanel>
+                
+                <Grid Grid.Row="0">
+                    <StackPanel Margin="5, 0 ,10, 0">
+                        <Label Content="Save Tabs" VerticalContentAlignment="Bottom" Margin="0,0,0,5"/>
+                        <WrapPanel>
+                            <ComboBox x:Name="SaveTabs" ItemsSource="{Binding SaveTabFiles}" SelectedItem="{Binding SelectedRemoveFile}" SelectedIndex="{Binding SelectedSaveFileIndex}" MinWidth="330" Height="50"/>
+                            <!--<ComboBox x:Name="SaveTabs" ItemsSource="{Binding SaveTabFiles}" SelectedItem="{Binding SelectedRemoveFile}" SelectedIndex="{Binding SelectedSaveFileIndex}" MinWidth="350" Height="50">
+                                <ComboBox.ItemTemplate>
+                                    <DataTemplate>
+                                        <TextBlock Text="{Binding}" FontSize="15"/>
+                                    </DataTemplate>
+                                </ComboBox.ItemTemplate>
+                            </ComboBox>-->
+                            <Button Command="{Binding RemoveFileCommand}" Content="Remove File" FontSize="15" Width="110" Margin="15, 0, 0, 0"/>
+                        </WrapPanel>
+                    </StackPanel>
+                </Grid>
+
+                <Grid Grid.Row="1">
+                    <Button Content="Save Options" HorizontalAlignment="Left" Width="110" Height="50" Command="{Binding SaveOptionsCommand}"/>
+                </Grid>
             </Grid>
         </Grid>
 
