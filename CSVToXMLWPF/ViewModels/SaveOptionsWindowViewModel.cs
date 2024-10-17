@@ -11,6 +11,7 @@ using System.Text;
 using System.Windows;
 using System.Xml.Linq;
 using System.Xml;
+using Xceed.Wpf.Toolkit.PropertyGrid.Attributes;
 
 namespace CSVToXMLWPF.ViewModels
 {
@@ -78,6 +79,22 @@ namespace CSVToXMLWPF.ViewModels
         {
             get { return _writeTabItems; }
             set { SetProperty(ref _writeTabItems, value); }
+        }
+
+        // 해당 버튼이 클릭되면 ReadTabItems 사용
+        private bool _readSaveOptionsClicked;
+        public bool ReadSaveOptionsClicked
+        {
+            get { return _readSaveOptionsClicked; }
+            set { SetProperty(ref _readSaveOptionsClicked, value); }
+        }
+
+        // 해당 버튼이 클릭되면 WriteTabItems 사용
+        private bool _writeSaveOptionsClicked;
+        public bool WriteSaveOptionsClicked
+        {
+            get { return _writeSaveOptionsClicked; }
+            set { SetProperty(ref _writeSaveOptionsClicked, value); }
         }
 
         // SelectedTabs 콤보박스와 바인딩 될 사용자가 선택한 탭에 열려있는 파일(명)들, 초기에 사용자가 선택한 탭에 열려있는 파일들을 가져오기 위함
@@ -158,14 +175,59 @@ namespace CSVToXMLWPF.ViewModels
 
         // ========>
         // 아니 ComboBox의 TextBlock에 Text="{Binding SelectedFileName}" 해주면 파일명이 안 뜨고 (SelectedSaveFileName 얘도 마찬가지)
-        // Text="{Binding}"하면 잘 뜸 ㅡㅡ
+        // Text="{Binding}"하면 잘 뜸..
         // SelectedFileName이랑 SelectedSaveFileName이 ObservableCollection 타입이 아니라서 UI에 반영이 안 되는거야?!
         // Text="Binding"만 하면 Text="{Binding}"는 현재 DataContext에서 기본 값을 가져온대
 
+        private ObservableCollection<string> _groupName;
+        public ObservableCollection<string> GroupName
+        {
+            get { return _groupName; }
+            set { SetProperty(ref _groupName, value); }
+        }
 
-        // 
+        private string _selectedGroupName;
+        public string SelectedGroupName
+        {
+            get { return _selectedGroupName; }
+            set 
+            { 
+                SetProperty(ref _selectedGroupName, value);
+                if (!string.IsNullOrEmpty(value))
+                {
+                    ExecuteSaveOptions = true;
+                }
+            }
+        }
 
+        private bool _executeSaveOptions;
+        public bool ExecuteSaveOptions
+        {
+            get { return _executeSaveOptions; }
+            set { SetProperty(ref _executeSaveOptions, value); }
+        }
 
+        // ==========================================================================================================================
+        // SaveOptions창을 닫으면 SaveOptionsWindowViewModel의 소멸자가 호출되면서 OptionsDic과 DicKeys가 null이 되어버리는 문제 발생
+
+        // Key는 사용자가 선택한 GroupName
+        // Value는 사용자가 하나의 그룹으로 묶어 XML 파일로 변환할 csv 파일들
+        private Dictionary<string, ObservableCollection<CsvTabViewModel>> _optionsDic;
+        //public Dictionary<string, ObservableCollection<CsvTabViewModel>> OptionsDic
+        //{
+        //    get { return _optionsDic; }
+        //    set { SetProperty(ref _optionsDic, value); }
+        //}
+
+        // OptionsDic의 Key값을 저장하는 리스트
+        private List<string> _dicKeys;
+        //public List<string> DicKeys
+        //{
+        //    get { return _dicKeys; }
+        //    set { SetProperty(ref _dicKeys, value); }
+        //}
+        // MainWindowViewModel의 OptionsDic와 DicKeys를 참조해서 쓸 것! -> SaveOptionsWindowViewModel을 공유
+        // ==========================================================================================================================
 
         // SaveOptionsWindowViewModel 생성자에서 MainWindowViewModel의 탭 정보를 전달
         public SaveOptionsWindowViewModel(IFileDialogService fileDialogService,
@@ -173,7 +235,12 @@ namespace CSVToXMLWPF.ViewModels
                                           ObservableCollection<CsvTabViewModel> writeTabItems,
                                           int selectedReadTabIndex,
                                           int selectedWriteTabIndex,
-                                          string selectedTabGroup)
+                                          string selectedTabGroup,
+                                          bool readSaveOptionsClicked,
+                                          bool writeSaveOptionsClicked,
+                                          Dictionary<string, ObservableCollection<CsvTabViewModel>> optionsDic,
+                                          List<string> dicKeys
+                                          )
         {
             _fileDialogService = fileDialogService;
             ReadTabItems = readTabItems;
@@ -181,20 +248,19 @@ namespace CSVToXMLWPF.ViewModels
             SelectedReadTabIndex = selectedReadTabIndex;
             SelectedWriteTabIndex = selectedWriteTabIndex;
             SelectedTabGroup = selectedTabGroup;
+            ReadSaveOptionsClicked = readSaveOptionsClicked;
+            WriteSaveOptionsClicked = writeSaveOptionsClicked;
+            _optionsDic = optionsDic;
+            _dicKeys = dicKeys;
 
             // NullReferenceException을 방지하기 위해 미리 초기화
             SelectedTabFiles = new ObservableCollection<string>();
             SaveTabFiles = new ObservableCollection<string>();
             FileList = new ObservableCollection<string>();
-            
-            UpdateSelectedTabFiles();       // 사용자가 선택한 탭(Read or Write)에 있는 파일들이 콤보박스에 보이게 하기 위한 메서드
-        }
+            GroupName = new ObservableCollection<string>();
 
-        private string _rootName;
-        public string RootName
-        {
-            get { return _rootName; }
-            set { SetProperty(ref _rootName, value); }
+            //사용자가 클릭한 버튼(Set ReadSaveOpts/WriteSaveOpts)에 따라 SelectedTabs 콤보박스에 각각의 Read 탭의 파일 or Write 탭의 파일 바인딩
+            UpdateSelectedTabFiles();               
         }
 
         private DelegateCommand _addFileCommand;
@@ -204,152 +270,39 @@ namespace CSVToXMLWPF.ViewModels
         private DelegateCommand _removeFileCommand;
         public DelegateCommand RemoveFileCommand =>
             _removeFileCommand ?? (_removeFileCommand = new DelegateCommand(ExecuteRemoveFileCommand));
-        
-        private DelegateCommand _saveXMLCommand;
-        public DelegateCommand SaveXMLCommand =>
-            _saveXMLCommand ?? (_saveXMLCommand = new DelegateCommand(ExecuteSaveXMLCommand));
 
-        // XML로 변환할 때는 행에 Name이 없으면  해당 행을 빼야함!
-        // Address는 0부터 순차적으로 부여
-        // PLCAddress - Bit Address - Read01 - Item - Name Address Label DataType Multi (이거는 나중에 UI에서 사용자가 선택해서 진행할 것 같기 때문에 프로님 코드 방식으로 2번 방법도 진행해보기)
-        void ExecuteSaveXMLCommand()
-        {
-            // RootName을 입력하지 않은 경우
-            if (string.IsNullOrEmpty(RootName))
-            {
-                MessageBox.Show("Root명을 지정해주세요", "❌⌨️❌", MessageBoxButton.OK, MessageBoxImage.Warning);
-                return;
-            }
+        private DelegateCommand _saveOptionsCommand;
+        public DelegateCommand SaveOptionsCommand =>
+            _saveOptionsCommand ?? (_saveOptionsCommand = new DelegateCommand(ExecuteSaveOptionsCommand));
 
-            // ComboBox 선택하지 않은 경우
-
-
-            else
-            {
-                // 파일 저장 대화 상자
-                string filter = "XML 파일 (*.xml)|*.xml";
-                string title = "";
-                string filePath = _fileDialogService.SaveFileDialog(filter, title);
-                Debug.WriteLine(filePath);
-
-                if (!string.IsNullOrEmpty(filePath))
-                {
-                    // 선택된 탭이 ReadTabItems에 있는지 WriteTabItems에 있는지 확인
-                    if (SelectedTabGroup == "Read" && ReadTabItems[SelectedReadTabIndex] != null)
-                    {
-                        convertListToXML(ReadTabItems[SelectedReadTabIndex], filePath);           // 1번 방법
-                        //convertDataTableToXML(ReadTabItems[SelectedReadTabIndex], filePath);        // 2번 방법
-                    }
-
-                    if (SelectedTabGroup == "Write" && WriteTabItems[SelectedWriteTabIndex] != null)
-                    {
-                        convertListToXML(WriteTabItems[SelectedWriteTabIndex], filePath);           // 1번 방법
-                        //convertDataTableToXML(WriteTabItems[SelectedWriteTabIndex], filePath);        // 2번 방법
-                    }
-                }
-                // 저장된 XML 파일 열기
-                _fileDialogService.OpenSavedFileDialog(filePath);
-            }
-        }
-
-        // 1번 방법 활용 > 아예 선택된 CsvTabViewModel을 매개변수로 전달
-        void convertListToXML(CsvTabViewModel csvTabViewModel, string filePath)
-        {
-            List<CsvView> records = csvTabViewModel.CsvView.ToList();
-            MessageBox.Show($"Original File Path: {csvTabViewModel.FilePath}\nSave Path: {filePath}");
-
-            int address = 0;
-
-            XDocument xDoc = new XDocument();
-
-            // XML로 변환
-            // XElement 클래스를 사용하여 XML 데이터를 만들고, XML 데이터에 LINQ를 사용하여 XML 요소를 가공
-            XElement xml = new XElement(RootName,
-                records.Where(record => !string.IsNullOrEmpty(record.Name)) // Name이 없는 항목 제외
-                .Select(record => new XElement("Item",
-                    new XElement("Name", record.Name),
-                    new XElement("Address", (address++).ToString()),
-                    new XElement("Label", record.Label),
-                    new XElement("DataType", record.DataType),
-                    new XElement("Multi", record.Multi)
-                ))
-            );
-            // XML 파일로 저장
-            xml.Save(filePath);
-        }
-
-        // 2번 방법 활용 => 1번과 마찬가지로 아예 선택된 CsvTabViewModel을 전달
-        void convertDataTableToXML(CsvTabViewModel csvTabViewModel, string filePath)
-        {
-            DataTable dt = ConvertDataGridToDataTable(csvTabViewModel);
-            DataTableToXML(dt, filePath);
-        }
-        DataTable ConvertDataGridToDataTable(CsvTabViewModel csvTabViewModel)
-        {
-            // DataTable : 단일 테이블, 즉 행과 열로 구성된 데이터 구조
-            // DataSet : 여러 개의 DataTable 포함이 가능한 컨테이너, 관계형 DB와 유사한 구조, 데이터 간의 관계(ex: 고객-주문)가 있는 경우에 유용
-            DataTable dataTable = new DataTable("Item");
-
-            dataTable.Columns.Add("Name");
-            dataTable.Columns.Add("Address");
-            dataTable.Columns.Add("Label");
-            dataTable.Columns.Add("DataType");
-            dataTable.Columns.Add("Multi");
-            
-            int address = 0;
-            foreach (var csvView in csvTabViewModel.CsvView)
-            {
-                if (!string.IsNullOrEmpty(csvView.Name))
-                {
-                    DataRow row = dataTable.NewRow();
-                    row["Name"] = csvView.Name;
-                    row["Address"] = (address++).ToString();
-                    row["Label"] = csvView.Label;
-                    row["DataType"] = csvView.DataType;
-                    row["Multi"] = csvView.Multi;
-                    dataTable.Rows.Add(row);
-                }
-            }
-            return dataTable;
-        }
-        // WriteXml() 사용 시 DataTable에 루트 요소 이름 지정이 불가능함 => DataSet을 사용하여 루트 요소를 지정해주기!
-        void DataTableToXML(DataTable dataTable, string filePath)
-        {
-            if (!string.IsNullOrEmpty(filePath))
-            {
-                // DataSet을 생성해 루트 요소 결정
-                DataSet ds = new DataSet(RootName);
-                ds.Tables.Add(dataTable);   // dataTable을 ds에 추가
-
-                // filePath 위치에 XML 파일 생성
-                // Indent = true => 들여쓰기
-                using (var writer = XmlWriter.Create(filePath, new XmlWriterSettings { Indent = true, Encoding = Encoding.UTF8 }))
-                {
-                    ds.WriteXml(writer);
-                }
-                MessageBox.Show("XML 저장 완료 : " + filePath);
-            }
-        }
-
-        // 사용자가 선택한 탭(Read/Write)에 따라 SelectedTabs 콤보박스에 바인딩
-        // SelectedTabs 콤보박스량 FileList랑 바인딩해서 FileList의 내용이 SelectedTabs 콤보박스에 보이도록 하기
-        // FileList는 SelectedTabFiles의 값을 복사하고 있음!!
+        // 사용자가 클릭한 버튼(Set ReadSaveOpts/WriteSaveOpts)에 따라
+        // SelectedTabs 콤보박스에 각각의 Read 탭의 파일 or Write 탭의 파일 바인딩
         void UpdateSelectedTabFiles()
         {
-            if (SelectedTabGroup == "Read")
+            if (ReadSaveOptionsClicked)
             {
                 foreach (var item in ReadTabItems)
                 {
                     SelectedTabFiles.Add(item.FileName);
                     FileList.Add(item.FileName);
                 }
+
+                for (int i = 1; i <= 5; i++)
+                {
+                    GroupName.Add($"Read0{i}");
+                }
             }
-            else
+            else if (WriteSaveOptionsClicked)
             {
                 foreach (var item in WriteTabItems)
                 {
                     SelectedTabFiles.Add(item.FileName);
                     FileList.Add(item.FileName);
+                }
+
+                for (int i = 1; i <= 5; i++)
+                {
+                    GroupName.Add($"Write0{i}");
                 }
             }
         }
@@ -405,6 +358,62 @@ namespace CSVToXMLWPF.ViewModels
                 SaveTabFiles.Remove(SelectedRemoveFile);    // SaveTabs에서 선택한 파일 제거
                 UpdateSelectedFileList();
             }
+        }
+
+        // Save Options 버튼 클릭 시
+        // OptionsDic에 선택한 GroupName과 선택한 파일들 저장
+        // 선택한 파일의 파일명은 SaveTabFiles 리스트에 저장되어 있음
+        // 이 리스트의 파일명과 ReadTabItems or WriteTabItems에 따라
+        // (이것도 ReadSaveOptionsClicked, WriteSaveOptionsClicked)로 구분
+        // optionsDic에 CsvTabViewModel 저장
+        void ExecuteSaveOptionsCommand()
+        {
+            if (SaveTabFiles.Count == 0)
+            {
+                MessageBox.Show("GroupName에 추가할 파일을 선택해주세요.", "❌⌨️❌", MessageBoxButton.OK, MessageBoxImage.Warning);
+                return;
+            }
+
+            if (ReadSaveOptionsClicked)
+            {
+                foreach (var fileName in SaveTabFiles)
+                {
+                    // FirstOrDefault()는 조건을 충족하는 row를 못 찾으면 NULL을 리턴하므로 NULL이 반환되는 경우도 생각해줘야함!
+                    // ReadTabItems에 있는 CsvTabViewModel중 FileName이 SaveTabFiles의 FileName과 갇으면 matchedCsvTab에 저장
+                    CsvTabViewModel matchedCsvTab = ReadTabItems.FirstOrDefault(tab => tab.FileName.Equals(fileName));
+
+                    if (matchedCsvTab != null)
+                    {
+                        if (!_optionsDic.ContainsKey(SelectedGroupName))
+                        {
+                            _optionsDic.Add(SelectedGroupName, new ObservableCollection<CsvTabViewModel>());
+                        }
+                        _optionsDic[SelectedGroupName].Add(matchedCsvTab);
+                    }
+                }
+                _dicKeys.Add(SelectedGroupName);
+            }
+
+            else
+            {
+                foreach (var fileName in SaveTabFiles)
+                {
+                    CsvTabViewModel matchedCsvTab = WriteTabItems.FirstOrDefault(tab => tab.FileName.Equals(fileName));
+
+                    if (matchedCsvTab != null)
+                    {
+                        if (!_optionsDic.ContainsKey(SelectedGroupName))
+                        {
+                            _optionsDic.Add(SelectedGroupName, new ObservableCollection<CsvTabViewModel>());
+                        }
+                        _optionsDic[SelectedGroupName].Add(matchedCsvTab);
+                    }
+                }
+
+                _dicKeys.Add(SelectedGroupName);
+            }
+
+            MessageBox.Show("옵션이 저장되었습니다!", "✨🗒️✨");
         }
     }
 }

@@ -117,15 +117,53 @@
 
         <Grid Grid.Row="1">
             <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="Auto"/>
                 <ColumnDefinition Width="1*"/>
                 <ColumnDefinition Width="Auto"/>
             </Grid.ColumnDefinitions>
 
+            <Grid Grid.Column="0">
+                <Label Content="Root>" Height="40"  FontSize="17" VerticalContentAlignment="Center"
+                       Margin="10, 0, 0, 0"/>
+            </Grid>
             <Grid Grid.Column="1">
+                <!--TextBox-->
+                <TextBox Height="40"  FontSize="20" 
+                         IsEnabled="{Binding OpenFileChecked}"
+                         VerticalContentAlignment="Center"
+                         x:Name="WaterMarkTextBox"
+                         Text="{Binding RootName}"/>
+
+                <!--Watermark TextBlock-->
+                <!--IsHitTestVisible="False" : extBlock이 마우스나 키보드의 입력을 받지 않도록 설정, 사용자가 워터마크 텍스트를 클릭해도 TextBox에만 포커스-->
+                <TextBlock IsHitTestVisible="False" 
+                           Text="(ex: PLCAddress)"  
+                           VerticalAlignment="Center" 
+                           Margin="10,0,10,0"
+                           FontSize="17"
+                           Foreground="DarkGray">
+                    <TextBlock.Style>
+                        <Style TargetType="{x:Type TextBlock}">
+                            <!--TextBlock 기본 상태는 숨김-->
+                            <Setter Property="Visibility" Value="Collapsed"/>
+                            <Style.Triggers>
+                                <!--TextBox의 Text가 비어 있으면 TextBlock 표시-->
+                                <!--DataTrigger: 특정 조건이 충족될 때 스타일을 변경, 텍스트박스의 Text 속성에 바인딩하여 WaterMarkTextBox의 텍스트 변화를 감지-->
+                                <!--텍스트가 비어있으면(Value="") Visibility 속성을(Property="Visibility") Visible로 설정(Value="Visible")하여 TextBlock이 보이게 함-->
+                                <DataTrigger Binding="{Binding Text, ElementName=WaterMarkTextBox}" Value="">
+                                    <Setter Property="Visibility" Value="Visible"/>
+                                </DataTrigger>
+                            </Style.Triggers>
+                        </Style>
+                    </TextBlock.Style>
+                </TextBlock>
+            </Grid>
+            <Grid Grid.Column="2">
                 <WrapPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center">
-                    <Button Content="Open File" Margin="15,0,10,0" Height="40" Width="120" Command="{Binding OpenFileCommand}" FontFamily="Malgun Gothic" FontSize="15" Background="AliceBlue"/>
-                    
-                    <Button Margin="10,0,10,0" Content="Set SaveOptions" Width="180" IsEnabled="{Binding OpenFileChecked}" Command="{Binding SetSaveOptionsCommand}" FontFamily="Malgun Gothic" FontSize="15" Background="AliceBlue"/>
+                    <Button Content="Open File" Margin="15,0,10,0" Height="40" Width="120" Command="{Binding OpenFileCommand}" FontSize="17" Background="AliceBlue"/>
+                    <Button Margin="5,0,10,0" Content="Set ReadSaveOpts" Width="180" IsEnabled="{Binding ReadFileOpened}" Command="{Binding SetReadSaveOptionsCommand}" CommandParameter="{Binding SelectedTabGroup}" FontSize="17" Background="AliceBlue"/>
+                    <Button Margin="5,0,10,0" Content="Set WriteSaveOpts" Width="180" IsEnabled="{Binding WriteFileOpened}" Command="{Binding SetWriteSaveOptionsCommand}" CommandParameter="{Binding SelectedTabGroup}" FontSize="17" Background="AliceBlue"/>
+                    <Button Margin="5,0,10,0" Content="Save XML" Width="120" IsEnabled="{Binding OpenFileCommand}" Command="{Binding SaveXMLCommand}" FontSize="17" Background="AliceBlue"/>
                 </WrapPanel>
             </Grid>
         </Grid>

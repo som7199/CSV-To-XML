@@ -24,5 +24,11 @@ namespace CSVToXMLWPF.Views
         {
             InitializeComponent();
         }
+
+        public SaveOptionsWindow(SaveOptionsWindowViewModel viewModel)
+        {
+            InitializeComponent();
+            DataContext = viewModel;    // 전달받은 ViewModel을 창의 DataContext에 설정
+        }
     }
 }
