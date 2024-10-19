@@ -87,12 +87,8 @@
                         FontSize="15" 
                         Width="200" Height="35" 
                         Margin="20, 26, 0, 0"
-                        Command="{Binding SaveOptionsCommand}"/>
+                        Command="{Binding BackToOpenFile}"/>
             </WrapPanel>
-
-            
-                
-            
         </Grid>
     </Grid>
 </Window>

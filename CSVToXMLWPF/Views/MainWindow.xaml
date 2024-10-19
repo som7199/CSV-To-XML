@@ -123,7 +123,7 @@
             </Grid.ColumnDefinitions>
 
             <Grid Grid.Column="0">
-                <Label Content="Root>" Height="40"  FontSize="17" VerticalContentAlignment="Center"
+                <Label Content="📌Root " Height="40"  FontSize="17" VerticalContentAlignment="Center"
                        Margin="10, 0, 0, 0"/>
             </Grid>
             <Grid Grid.Column="1">
@@ -163,7 +163,7 @@
                     <Button Content="Open File" Margin="15,0,10,0" Height="40" Width="120" Command="{Binding OpenFileCommand}" FontSize="17" Background="AliceBlue"/>
                     <Button Margin="5,0,10,0" Content="Set ReadSaveOpts" Width="180" IsEnabled="{Binding ReadFileOpened}" Command="{Binding SetReadSaveOptionsCommand}" CommandParameter="{Binding SelectedTabGroup}" FontSize="17" Background="AliceBlue"/>
                     <Button Margin="5,0,10,0" Content="Set WriteSaveOpts" Width="180" IsEnabled="{Binding WriteFileOpened}" Command="{Binding SetWriteSaveOptionsCommand}" CommandParameter="{Binding SelectedTabGroup}" FontSize="17" Background="AliceBlue"/>
-                    <Button Margin="5,0,10,0" Content="Save XML" Width="120" IsEnabled="{Binding OpenFileCommand}" Command="{Binding SaveXMLCommand}" FontSize="17" Background="AliceBlue"/>
+                    <Button Margin="5,0,10,0" Content="Save XML" Width="120" IsEnabled="{Binding ExecuteSaveXML}" Command="{Binding SaveXMLCommand}" FontSize="17" Background="AliceBlue"/>
                 </WrapPanel>
             </Grid>
         </Grid>

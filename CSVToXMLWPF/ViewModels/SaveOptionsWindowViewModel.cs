@@ -12,11 +12,12 @@ using System.Windows;
 using System.Xml.Linq;
 using System.Xml;
 using Xceed.Wpf.Toolkit.PropertyGrid.Attributes;
+using CSVToXMLWPF.Views;
 
 namespace CSVToXMLWPF.ViewModels
 {
-	public class SaveOptionsWindowViewModel : BindableBase
-	{
+    public class SaveOptionsWindowViewModel : BindableBase
+    {
         // 파일 다이얼로그 서비스 참조
         private readonly IFileDialogService _fileDialogService;
 
@@ -68,18 +69,7 @@ namespace CSVToXMLWPF.ViewModels
 
         // MainWindowViewModel에서 새롭게 분류한 ReadTabItems, WriteTabItems
         private ObservableCollection<CsvTabViewModel> _readTabItems;
-        public ObservableCollection<CsvTabViewModel> ReadTabItems
-        {
-            get { return _readTabItems; }
-            set { SetProperty(ref _readTabItems, value); }
-        }
-
         private ObservableCollection<CsvTabViewModel> _writeTabItems;
-        public ObservableCollection<CsvTabViewModel> WriteTabItems
-        {
-            get { return _writeTabItems; }
-            set { SetProperty(ref _writeTabItems, value); }
-        }
 
         // 해당 버튼이 클릭되면 ReadTabItems 사용
         private bool _readSaveOptionsClicked;
@@ -110,10 +100,7 @@ namespace CSVToXMLWPF.ViewModels
         public ObservableCollection<string> FileList
         {
             get { return _fileList; }
-            set 
-            { 
-                SetProperty(ref _fileList, value);
-            }
+            set { SetProperty(ref _fileList, value); }
         }
 
         // SaveTabs 콤보박스와 바인딩 될 사용자가 최종적으로 XML 파일로 변환하고 싶은 파일들
@@ -121,10 +108,7 @@ namespace CSVToXMLWPF.ViewModels
         public ObservableCollection<string> SaveTabFiles
         {
             get { return _saveTabFiles; }
-            set 
-            { 
-                SetProperty(ref _saveTabFiles, value);
-            }
+            set { SetProperty(ref _saveTabFiles, value); }
         }
 
         // 사용자가 SelectedTabs 콤보박스에서 선택한 파일 ---------------------> 사용자가 선택한 파일을 바인딩해서 콤보박스에서 보여주기 위함
@@ -190,8 +174,8 @@ namespace CSVToXMLWPF.ViewModels
         public string SelectedGroupName
         {
             get { return _selectedGroupName; }
-            set 
-            { 
+            set
+            {
                 SetProperty(ref _selectedGroupName, value);
                 if (!string.IsNullOrEmpty(value))
                 {
@@ -209,26 +193,15 @@ namespace CSVToXMLWPF.ViewModels
 
         // ==========================================================================================================================
         // SaveOptions창을 닫으면 SaveOptionsWindowViewModel의 소멸자가 호출되면서 OptionsDic과 DicKeys가 null이 되어버리는 문제 발생
+        // MainWindowViewModel의 OptionsDic와 DicKeys를 참조해서 쓸 것! -> SaveOptionsWindowViewModel을 공유
 
-        // Key는 사용자가 선택한 GroupName
-        // Value는 사용자가 하나의 그룹으로 묶어 XML 파일로 변환할 csv 파일들
+        // Key는 사용자가 선택한 GroupName - Value는 사용자가 하나의 그룹으로 묶어 XML 파일로 변환할 csv 파일들
         private Dictionary<string, ObservableCollection<CsvTabViewModel>> _optionsDic;
-        //public Dictionary<string, ObservableCollection<CsvTabViewModel>> OptionsDic
-        //{
-        //    get { return _optionsDic; }
-        //    set { SetProperty(ref _optionsDic, value); }
-        //}
 
         // OptionsDic의 Key값을 저장하는 리스트
         private List<string> _dicKeys;
-        //public List<string> DicKeys
-        //{
-        //    get { return _dicKeys; }
-        //    set { SetProperty(ref _dicKeys, value); }
-        //}
-        // MainWindowViewModel의 OptionsDic와 DicKeys를 참조해서 쓸 것! -> SaveOptionsWindowViewModel을 공유
-        // ==========================================================================================================================
 
+        // ==========================================================================================================================
         // SaveOptionsWindowViewModel 생성자에서 MainWindowViewModel의 탭 정보를 전달
         public SaveOptionsWindowViewModel(IFileDialogService fileDialogService,
                                           ObservableCollection<CsvTabViewModel> readTabItems,
@@ -243,8 +216,8 @@ namespace CSVToXMLWPF.ViewModels
                                           )
         {
             _fileDialogService = fileDialogService;
-            ReadTabItems = readTabItems;
-            WriteTabItems = writeTabItems;
+            _readTabItems = readTabItems;
+            _writeTabItems = writeTabItems;
             SelectedReadTabIndex = selectedReadTabIndex;
             SelectedWriteTabIndex = selectedWriteTabIndex;
             SelectedTabGroup = selectedTabGroup;
@@ -260,7 +233,7 @@ namespace CSVToXMLWPF.ViewModels
             GroupName = new ObservableCollection<string>();
 
             //사용자가 클릭한 버튼(Set ReadSaveOpts/WriteSaveOpts)에 따라 SelectedTabs 콤보박스에 각각의 Read 탭의 파일 or Write 탭의 파일 바인딩
-            UpdateSelectedTabFiles();               
+            UpdateSelectedTabFiles();
         }
 
         private DelegateCommand _addFileCommand;
@@ -275,13 +248,17 @@ namespace CSVToXMLWPF.ViewModels
         public DelegateCommand SaveOptionsCommand =>
             _saveOptionsCommand ?? (_saveOptionsCommand = new DelegateCommand(ExecuteSaveOptionsCommand));
 
+        private DelegateCommand _backToOpenFile;
+        public DelegateCommand BackToOpenFile =>
+            _backToOpenFile ?? (_backToOpenFile = new DelegateCommand(ExecuteBackToOpenFile));
+
         // 사용자가 클릭한 버튼(Set ReadSaveOpts/WriteSaveOpts)에 따라
         // SelectedTabs 콤보박스에 각각의 Read 탭의 파일 or Write 탭의 파일 바인딩
         void UpdateSelectedTabFiles()
         {
             if (ReadSaveOptionsClicked)
             {
-                foreach (var item in ReadTabItems)
+                foreach (var item in _readTabItems)
                 {
                     SelectedTabFiles.Add(item.FileName);
                     FileList.Add(item.FileName);
@@ -294,7 +271,7 @@ namespace CSVToXMLWPF.ViewModels
             }
             else if (WriteSaveOptionsClicked)
             {
-                foreach (var item in WriteTabItems)
+                foreach (var item in _writeTabItems)
                 {
                     SelectedTabFiles.Add(item.FileName);
                     FileList.Add(item.FileName);
@@ -379,8 +356,8 @@ namespace CSVToXMLWPF.ViewModels
                 foreach (var fileName in SaveTabFiles)
                 {
                     // FirstOrDefault()는 조건을 충족하는 row를 못 찾으면 NULL을 리턴하므로 NULL이 반환되는 경우도 생각해줘야함!
-                    // ReadTabItems에 있는 CsvTabViewModel중 FileName이 SaveTabFiles의 FileName과 갇으면 matchedCsvTab에 저장
-                    CsvTabViewModel matchedCsvTab = ReadTabItems.FirstOrDefault(tab => tab.FileName.Equals(fileName));
+                    // ReadTabItems에 있는 CsvTabViewModel중 FileName이 SaveTabFiles의 FileName과 같은 CsvTabViewModel 객체를 matchedCsvTab에 저장
+                    CsvTabViewModel matchedCsvTab = _readTabItems.FirstOrDefault(tab => tab.FileName.Equals(fileName));
 
                     if (matchedCsvTab != null)
                     {
@@ -398,7 +375,7 @@ namespace CSVToXMLWPF.ViewModels
             {
                 foreach (var fileName in SaveTabFiles)
                 {
-                    CsvTabViewModel matchedCsvTab = WriteTabItems.FirstOrDefault(tab => tab.FileName.Equals(fileName));
+                    CsvTabViewModel matchedCsvTab = _writeTabItems.FirstOrDefault(tab => tab.FileName.Equals(fileName));
 
                     if (matchedCsvTab != null)
                     {
@@ -412,8 +389,29 @@ namespace CSVToXMLWPF.ViewModels
 
                 _dicKeys.Add(SelectedGroupName);
             }
-
             MessageBox.Show("옵션이 저장되었습니다!", "✨🗒️✨");
+
+            Action closeWindowAction = CloseSaveOptionsWindow;
+            closeWindowAction();
+
+        }
+
+        void ExecuteBackToOpenFile()
+        {
+            Action closeWindowAction = CloseSaveOptionsWindow;
+            closeWindowAction();
+        }
+
+        void CloseSaveOptionsWindow()
+        {
+            // Dispatcher로 UI스레드에서 창을 닫기
+            Application.Current.Dispatcher.Invoke(() =>
+            {
+                // 현재 열려 있는 창 중에서 SaveOptionsWindow 타입의 창을 찾음
+                // OfType<T>() : LINQ의 확장 메서드 중 하나로, 컬렉션에서 지정된 타입의 요소만 선택하여 반환, T는 찾고자 하는 객체의 타입
+                var window = Application.Current.Windows.OfType<SaveOptionsWindow>().FirstOrDefault();
+                window.Close();
+            });
         }
     }
 }

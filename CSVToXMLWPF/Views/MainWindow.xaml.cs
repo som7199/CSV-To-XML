@@ -23,5 +23,18 @@ namespace CSVToXMLWPF.Views
                 e.Cancel = true; // 창 닫기 취소
             }
         }
+
+        private void OpenSaveWindowButton_Click(object sender, RoutedEventArgs e)
+        {
+            // MainWindow를 숨기기
+            this.Hide();
+
+            // SaveOptionsWindow를 열기
+            SaveOptionsWindow saveWindow = new SaveOptionsWindow();
+            saveWindow.ShowDialog();  // SaveWindow를 모달로 열기
+
+            // SaveWindow가 닫히면 다시 MainWindow를 보이기
+            this.Show();
+        }
     }
 }

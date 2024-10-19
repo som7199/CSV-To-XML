@@ -149,7 +149,11 @@ namespace CSVToXMLWPF.ViewModels
         public string RootName
         {
             get { return _rootName; }
-            set { SetProperty(ref _rootName, value); }
+            set 
+            {
+                SetProperty(ref _rootName, value);
+                
+            }
         }
 
         private string _selectedTabGroup;
@@ -181,18 +185,7 @@ namespace CSVToXMLWPF.ViewModels
         public Dictionary<string, ObservableCollection<CsvTabViewModel>> OptionsDic
         {
             get { return _optionsDic; }
-            set 
-            { 
-                SetProperty(ref _optionsDic, value); 
-                //if (value.Count > 0)
-                //{
-                //    ExecuteSaveXML = true;
-                //}
-                //else
-                //{
-                //    ExecuteSaveXML = false;
-                //}
-            }
+            set { SetProperty(ref _optionsDic, value); }
         }
 
         // OptionsDic의 Key값을 저장하는 리스트
@@ -255,6 +248,7 @@ namespace CSVToXMLWPF.ViewModels
             saveOptionsWindow.Top = Application.Current.MainWindow.Top;
 
             saveOptionsWindow.ShowDialog();
+            ExecuteSaveXML = true;
         }
 
         // Set WriteSaveOpts 버튼 클릭 시 SelectedTabFiles에 열린 Write 파일 저장
@@ -264,7 +258,6 @@ namespace CSVToXMLWPF.ViewModels
             WriteSaveOptionsClicked = true;
             ReadSaveOptionsClicked = false;
 
-            // SaveOptionsWindow의 DataContext에 ViewModel을 바인딩
             var saveOptionsWindowViewModel = new SaveOptionsWindowViewModel(_fileDialogService,
                                                                             this.ReadTabItems,
                                                                             this.WriteTabItems,
@@ -278,7 +271,6 @@ namespace CSVToXMLWPF.ViewModels
                                                                             );
             
             var saveOptionsWindow = new SaveOptionsWindow(saveOptionsWindowViewModel);            // SaveOptions 창을 띄움!
-
             // MainWindow를 SaveOptionsWindow의 Owner로 설정
             saveOptionsWindow.Owner = Application.Current.MainWindow;
 
@@ -288,6 +280,8 @@ namespace CSVToXMLWPF.ViewModels
             saveOptionsWindow.Top = Application.Current.MainWindow.Top;
 
             saveOptionsWindow.ShowDialog();
+            
+            ExecuteSaveXML = true;
         }
 
         public MainWindowViewModel(IFileDialogService fileDialogService)
@@ -456,7 +450,14 @@ namespace CSVToXMLWPF.ViewModels
                 return;
             }
 
-            else
+            if (char.IsDigit(RootName[0]))
+            {
+                MessageBox.Show("Root명은 숫자로 시작할 수 없습니다.", "❌⌨️❌", MessageBoxButton.OK, MessageBoxImage.Warning);
+                RootName = "";
+                return;
+            }
+
+            if (OptionsDic.Count > 0)
             {
                 // 파일 저장 대화 상자
                 string filter = "XML 파일 (*.xml)|*.xml";
@@ -482,6 +483,14 @@ namespace CSVToXMLWPF.ViewModels
 
                 DicKeys.Clear();
                 OptionsDic.Clear();
+                RootName = "";
+            }
+
+            // XML 파일 하나가 저장되면 DicKeys와 OptionsDic을 비워주기 때문에 OptionsDic이 비워져있으면 저장할 파일이 없다는 메시지박스 띄우기
+            else
+            {
+                MessageBox.Show("저장할 파일이 없습니다.", "❌⌨️❌", MessageBoxButton.OK, MessageBoxImage.Warning);
+                return;
             }
         }
 
