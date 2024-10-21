@@ -12,12 +12,8 @@ using System.Diagnostics;
 using System.Globalization;
 using System.IO;
 using System.Linq;
-using System.Text;
 using System.Windows;
 using System.Xml.Linq;
-using System.Xml;
-using System.IO.Enumeration;
-using System.Windows.Documents;
 
 namespace CSVToXMLWPF.ViewModels
 {
@@ -59,22 +55,6 @@ namespace CSVToXMLWPF.ViewModels
             set { SetProperty(ref _writeFileOpened, value); }
         }
 
-        // 해당 버튼이 클릭되면 ReadTabItems 사용
-        private bool _readSaveOptionsClicked;
-        public bool ReadSaveOptionsClicked
-        {
-            get { return _readSaveOptionsClicked; }
-            set { SetProperty(ref _readSaveOptionsClicked, value); }
-        }
-
-        // 해당 버튼이 클릭되면 WriteTabItems 사용
-        private bool _writeSaveOptionsClicked;
-        public bool WriteSaveOptionsClicked
-        {
-            get { return _writeSaveOptionsClicked; }
-            set { SetProperty(ref _writeSaveOptionsClicked, value); }
-        }
-
         private bool _executeSaveXML;
         public bool ExecuteSaveXML
         {
@@ -100,35 +80,11 @@ namespace CSVToXMLWPF.ViewModels
             set { SetProperty(ref _csvView, value); }
         }
 
-#if false
-        // 여러 개의 CsvTabViewModel 객체 담는 _tabItems
-        /*
-         * 탭에 표시되는 데이터는 TabItems에서 오고, 각 탭의 내용은 CsvTabViewModel의 CsvView라는 ObservableCollection에 바인딩되어 DataGrid로 나타남!
-         * 각 탭은 CsvTabViewModel 객체로 구성되며, CsvTabViewModel에는 CsvView와 FilePath, FileName이 있음
-         * 각 탭에는 하나의 CSV 파일이 대응됨 => CsvTabViewModel의 CsvView가 각 탭의 DataGrid에 바인딩되어야 각 탭마다 해당 파일 경로에 따른 파일의 데이터가 데이터 그리드에 표시됨
-         */
-        private ObservableCollection<CsvTabViewModel> _tabItems;
-        public ObservableCollection<CsvTabViewModel> TabItems
-        {
-            get { return _tabItems; }
-            set { SetProperty(ref _tabItems, value); }
-        }
-
-        // 1. Open File 했을 때 기존에 열려있던 탭 말고 새로 연 파일이 보이게 하기 위함
-        // 2. SelectedTabIndex로 해당 탭의 CsvView 데이터를 XML로 변환하기 위함
-        private int _selectedTabIndex;
-        public int SelectedTabIndex
-        {
-            get { return _selectedTabIndex; }
-            set { SetProperty(ref _selectedTabIndex, value); }
-        }
-#endif
         /*
          * 이제 Read용 데이터그리드와 Write용 데이터그리드 두 개를 띄워야하기 때문에
          * 각각의 ReadTabItems와 WriteTabItems를 관리할 수 있는 리스트(ObservableCollection)를 만들어야 함!
          * 이 리스트는 각 파일에 대해 별도의 CsvTabViewModel을 갖게 됨!
          */
-        // Read 탭에 대한 리스트, UI와 바인딩될 것
         private ObservableCollection<CsvTabViewModel> _readTabItems;
         public ObservableCollection<CsvTabViewModel> ReadTabItems
         {
@@ -136,7 +92,6 @@ namespace CSVToXMLWPF.ViewModels
             set { SetProperty(ref _readTabItems, value); }
         }
 
-        // Write 탭에 대한 리스트, UI와 바인딩될 것
         private ObservableCollection<CsvTabViewModel> _writeTabItems;
         public ObservableCollection<CsvTabViewModel> WriteTabItems
         {
@@ -144,31 +99,12 @@ namespace CSVToXMLWPF.ViewModels
             set { SetProperty(ref _writeTabItems, value); }
         }
 
-        // 사용자가 입력할 RootName
-        private string _rootName;
-        public string RootName
-        {
-            get { return _rootName; }
-            set 
-            {
-                SetProperty(ref _rootName, value);
-                
-            }
-        }
-
-        private string _selectedTabGroup;
-        public string SelectedTabGroup
-        {
-            get { return _selectedTabGroup; }
-            set { SetProperty(ref _selectedTabGroup, value); }
-        }
-
         // 현재 선택된 Read 탭 인덱스(UI에서 어떤 탭이 선택됐는지)
         private int _selectedReadTabIndex;
         public int SelectedReadTabIndex
         {
             get { return _selectedReadTabIndex; }
-            set { SetProperty(ref _selectedReadTabIndex, value);}
+            set { SetProperty(ref _selectedReadTabIndex, value); }
         }
 
         // 현재 선택된 Write 탭 인덱스(UI에서 어떤 탭이 선택됐는지)
@@ -176,9 +112,17 @@ namespace CSVToXMLWPF.ViewModels
         public int SelectedWriteTabIndex
         {
             get { return _selectedWriteTabIndex; }
-            set { SetProperty(ref _selectedWriteTabIndex, value);}
+            set { SetProperty(ref _selectedWriteTabIndex, value); }
         }
 
+        // 사용자가 입력할 RootName
+        private string _rootName;
+        public string RootName
+        {
+            get { return _rootName; }
+            set { SetProperty(ref _rootName, value); }
+        }
+        
         // Key는 사용자가 선택한 GroupName
         // Value는 사용자가 하나의 그룹으로 묶어 XML 파일로 변환할 csv 파일들
         private Dictionary<string, ObservableCollection<CsvTabViewModel>> _optionsDic;
@@ -196,11 +140,12 @@ namespace CSVToXMLWPF.ViewModels
             set { SetProperty(ref _dicKeys, value); }
         }
 
+        // DelegateCommand<T>를 사용하면 CommandParameter 처리 가능해짐! (아직은 안 씀)
+
         private DelegateCommand _openFileCommand;
         public DelegateCommand OpenFileCommand =>
             _openFileCommand ?? (_openFileCommand = new DelegateCommand(ExecuteOpenFileCommand));
 
-        // DelegateCommand<T>를 사용하면 CommandParameter 처리 가능해짐!
         private DelegateCommand _setReadSaveOptionsCommand;
         public DelegateCommand SetReadSaveOptionsCommand =>
             _setReadSaveOptionsCommand ?? (_setReadSaveOptionsCommand = new DelegateCommand(ExecuteSetReadSaveOptionsCommand));
@@ -218,21 +163,13 @@ namespace CSVToXMLWPF.ViewModels
         // FileList는 SelectedTabFiles의 값을 복사하고 있음!!
         void ExecuteSetReadSaveOptionsCommand()
         {
-            SelectedTabGroup = "Read";
-            ReadSaveOptionsClicked = true;
-            WriteSaveOptionsClicked = false;
-
+            string selectedTab = "Read";
             // SaveOptionsWindowViewModel 생성 시 MainWindowViewModel의 OptionsDic, DicKeys를 매개변수로 전달
             var saveOptionsWindowViewModel = new SaveOptionsWindowViewModel(_fileDialogService,
                                                                             this.ReadTabItems,
-                                                                            this.WriteTabItems,
-                                                                            this.SelectedReadTabIndex,
-                                                                            this.SelectedWriteTabIndex,
-                                                                            this.SelectedTabGroup,
-                                                                            this.ReadSaveOptionsClicked,
-                                                                            this.WriteSaveOptionsClicked,
                                                                             this.OptionsDic,
-                                                                            this.DicKeys
+                                                                            this.DicKeys,
+                                                                            selectedTab
                                                                             );
 
             // SaveOptionsWindow 창 생성 시 saveOptionsWindowViewModel을 매개변수로 전달함으로써 SaveOptionsWindow에서 MainWindowViewModel의 OptionsDic과 DicKeys를 참조하게 하고
@@ -254,20 +191,12 @@ namespace CSVToXMLWPF.ViewModels
         // Set WriteSaveOpts 버튼 클릭 시 SelectedTabFiles에 열린 Write 파일 저장
         void ExecuteSetWriteSaveOptionsCommand()
         {
-            SelectedTabGroup = "Write";
-            WriteSaveOptionsClicked = true;
-            ReadSaveOptionsClicked = false;
-
+            string selectedTab = "Write";
             var saveOptionsWindowViewModel = new SaveOptionsWindowViewModel(_fileDialogService,
-                                                                            this.ReadTabItems,
                                                                             this.WriteTabItems,
-                                                                            this.SelectedReadTabIndex,
-                                                                            this.SelectedWriteTabIndex,
-                                                                            this.SelectedTabGroup,
-                                                                            this.ReadSaveOptionsClicked,
-                                                                            this.WriteSaveOptionsClicked,
                                                                             this.OptionsDic,
-                                                                            this.DicKeys
+                                                                            this.DicKeys,
+                                                                            selectedTab
                                                                             );
             
             var saveOptionsWindow = new SaveOptionsWindow(saveOptionsWindowViewModel);            // SaveOptions 창을 띄움!
@@ -280,7 +209,6 @@ namespace CSVToXMLWPF.ViewModels
             saveOptionsWindow.Top = Application.Current.MainWindow.Top;
 
             saveOptionsWindow.ShowDialog();
-            
             ExecuteSaveXML = true;
         }
 
@@ -288,10 +216,8 @@ namespace CSVToXMLWPF.ViewModels
         {
             _fileDialogService = fileDialogService;
             filePathList = new List<string>();                          // 생성자에서 초기화
-             
             ReadTabItems = new ObservableCollection<CsvTabViewModel>();
             WriteTabItems = new ObservableCollection<CsvTabViewModel>();
-
             OptionsDic = new Dictionary<string, ObservableCollection<CsvTabViewModel>>();
             DicKeys = new List<string>();
         }
@@ -321,21 +247,7 @@ namespace CSVToXMLWPF.ViewModels
                         DivideReadWrite(tabViewModel);
                     }
                 }
-
-                // 새로 추가된 탭의 인덱스를 설정하여 선택합니다.
-                if (ReadTabItems.Count > 0)
-                {
-                    ReadFileOpened = true;
-                    SelectedReadTabIndex = ReadTabItems.Count - 1; // 마지막으로 추가된 탭의 인덱스를 선택
-                }
-
-                // 새로 추가된 탭의 인덱스를 설정하여 선택합니다.
-                if (WriteTabItems.Count > 0)
-                {
-                    WriteFileOpened = true;
-                    SelectedWriteTabIndex = WriteTabItems.Count - 1; // 마지막으로 추가된 탭의 인덱스를 선택
-                }
-
+                
                 // OpenFileChecked를 true로 설정 => Root와 Group Name 입력 가능
                 OpenFileChecked = true;
             }
@@ -376,11 +288,19 @@ namespace CSVToXMLWPF.ViewModels
             if (readCsvView.Count > 0)
             {
                 ReadTabItems.Add(new CsvTabViewModel(tabViewModel.FilePath, readCsvView, tabViewModel.FileName));
+
+                // Set ReadSaveOpts 버튼 활성화
+                ReadFileOpened = true;
+                SelectedReadTabIndex = ReadTabItems.Count - 1; // 마지막으로 추가된 탭의 인덱스를 선택
             }
 
             if (writeCsvView.Count > 0)
             {
                 WriteTabItems.Add(new CsvTabViewModel(tabViewModel.FilePath, writeCsvView, tabViewModel.FileName));
+
+                // Set WriteSaveOpts 버튼 활성화
+                WriteFileOpened = true;
+                SelectedWriteTabIndex = WriteTabItems.Count - 1; // 마지막으로 추가된 탭의 인덱스를 선택
             }
         }
 
@@ -489,7 +409,7 @@ namespace CSVToXMLWPF.ViewModels
             // XML 파일 하나가 저장되면 DicKeys와 OptionsDic을 비워주기 때문에 OptionsDic이 비워져있으면 저장할 파일이 없다는 메시지박스 띄우기
             else
             {
-                MessageBox.Show("저장할 파일이 없습니다.", "❌⌨️❌", MessageBoxButton.OK, MessageBoxImage.Warning);
+                MessageBox.Show("저장할 파일이 없습니다. 저장 옵션부터 지정해주세요.", "❌⌨️❌", MessageBoxButton.OK, MessageBoxImage.Warning);
                 return;
             }
         }
@@ -519,7 +439,6 @@ namespace CSVToXMLWPF.ViewModels
             return null;
         }
 
-        // 1번 방법
         XElement convertListToXML(CsvTabViewModel mergedCsvTabViewModel, string key)
         {
             List<CsvView> records = mergedCsvTabViewModel.CsvView.ToList();

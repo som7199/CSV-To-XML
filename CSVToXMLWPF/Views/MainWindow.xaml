@@ -4,7 +4,7 @@
         xmlns:prism="http://prismlibrary.com/" 
         xmlns:local="clr-namespace:CSVToXMLWPF.ViewModels"
         prism:ViewModelLocator.AutoWireViewModel="True"
-        Title="{Binding Title}" Height="500" Width="1000" 
+        Title="{Binding Title}" Height="600" Width="1200" 
         WindowStartupLocation="CenterScreen"
         Closing="Window_Closing">
     <!--local은 IndexConverter 클래스가 정의된 네임스페이스, XAML 파일에서 해당 클래스에 접근할 수 있게 해줌-->
@@ -161,8 +161,8 @@
             <Grid Grid.Column="2">
                 <WrapPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center">
                     <Button Content="Open File" Margin="15,0,10,0" Height="40" Width="120" Command="{Binding OpenFileCommand}" FontSize="17" Background="AliceBlue"/>
-                    <Button Margin="5,0,10,0" Content="Set ReadSaveOpts" Width="180" IsEnabled="{Binding ReadFileOpened}" Command="{Binding SetReadSaveOptionsCommand}" CommandParameter="{Binding SelectedTabGroup}" FontSize="17" Background="AliceBlue"/>
-                    <Button Margin="5,0,10,0" Content="Set WriteSaveOpts" Width="180" IsEnabled="{Binding WriteFileOpened}" Command="{Binding SetWriteSaveOptionsCommand}" CommandParameter="{Binding SelectedTabGroup}" FontSize="17" Background="AliceBlue"/>
+                    <Button Margin="5,0,10,0" Content="Set ReadSaveOpts" Width="180" IsEnabled="{Binding ReadFileOpened}" Command="{Binding SetReadSaveOptionsCommand}" FontSize="17" Background="AliceBlue"/>
+                    <Button Margin="5,0,10,0" Content="Set WriteSaveOpts" Width="180" IsEnabled="{Binding WriteFileOpened}" Command="{Binding SetWriteSaveOptionsCommand}" CommandParameter="{Binding }" FontSize="17" Background="AliceBlue"/>
                     <Button Margin="5,0,10,0" Content="Save XML" Width="120" IsEnabled="{Binding ExecuteSaveXML}" Command="{Binding SaveXMLCommand}" FontSize="17" Background="AliceBlue"/>
                 </WrapPanel>
             </Grid>
